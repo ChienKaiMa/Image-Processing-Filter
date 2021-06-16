@@ -1,0 +1,8 @@
+*.dat
+library/*
+*.setup
+tsmc13.v
+layout/IPF.globals
+layout/IPF.view
+layout/set_ccopt_property.tcl
+syn/tsmc13_neg.v
