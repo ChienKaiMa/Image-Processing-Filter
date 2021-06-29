@@ -18,15 +18,15 @@ output  [13:0] dout_addr;
 
 
 // FSM for top module
-parameter S_INIT     = 4'd0;
-parameter S_OFF      = 4'd1;
-parameter S_PO       = 4'd2;
-parameter S_WO_HORI  = 4'd3;
-parameter S_WO_VERT0 = 4'd4;
-parameter S_WO_VERT1 = 4'd5;
-parameter S_WO_VERT2 = 4'd6;
-parameter S_WO_VERT3 = 4'd7;
-reg [3:0] c_state, n_state;
+parameter S_INIT     = 3'd0;
+parameter S_OFF      = 3'd1;
+parameter S_PO       = 3'd2;
+parameter S_WO_HORI  = 3'd3;
+parameter S_WO_VERT0 = 3'd4;
+parameter S_WO_VERT1 = 3'd5;
+parameter S_WO_VERT2 = 3'd6;
+parameter S_WO_VERT3 = 3'd7;
+reg [2:0] c_state, n_state;
 
 // FSM for WO horizontal
 parameter S_WO_H_INIT     = 3'd0;
@@ -50,6 +50,7 @@ reg [7:0] c_buffer_xl_2 [63:0];
 reg [7:0] n_buffer_xl_0 [63:0];
 reg [7:0] n_buffer_xl_1 [63:0];
 reg [7:0] n_buffer_xl_2 [63:0];
+integer idx;
 
 //wire/reg declaration
 
@@ -113,20 +114,17 @@ always@(*) begin
                 n_state = S_PO;
             end
             else begin
-                //n_state = S_OFF;
                 if (ipf_wo_class == 0) begin
                     n_state = S_WO_HORI;
                 end
                 else begin
-                    n_state = S_PO;
-                    //n_state = S_WO_VERT0;
+                    n_state = S_WO_VERT0;
                 end
             end
         end
         else begin
             n_state = S_INIT;
         end
-        // TODO: State transition
         n_wo_h_state = c_wo_h_state;
         n_busy = 1'b0;
         n_out_en = 1'b0;
@@ -138,12 +136,17 @@ always@(*) begin
         n_buffer[2] = c_buffer[2];
         n_buffer[1] = c_buffer[1];
         n_buffer[0] = c_buffer[0];
+        for (idx=0; idx<64; idx=idx+1) begin
+            n_buffer_xl_0[idx] = 0;
+            n_buffer_xl_1[idx] = 0;
+            n_buffer_xl_2[idx] = 0;
+        end
     end
     S_OFF: begin
         n_state = !(c_in_y == c_lcu_size + 1) ? S_OFF : S_INIT;
         n_wo_h_state = c_wo_h_state;
-        n_busy = (c_in_y == c_lcu_size + 1) ||
-                ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size)); // TODO: Check correctness
+        n_busy = ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 1)) ||
+                ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 2));
         n_out_en = !(c_in_y == (c_lcu_size + 1));
         n_in_x = (c_in_x == c_lcu_size) ? 7'd0 : (c_in_x + 7'd1);
         n_in_y = (c_in_y == c_lcu_size + 1) ? 7'd0
@@ -155,12 +158,17 @@ always@(*) begin
         n_buffer[2] = c_buffer[2];
         n_buffer[1] = c_buffer[1];
         n_buffer[0] = c_buffer[0];
+        for(idx=0; idx<64; idx=idx+1) begin
+            n_buffer_xl_0[idx] = 0;
+            n_buffer_xl_1[idx] = 0;
+            n_buffer_xl_2[idx] = 0;
+        end
     end
     S_PO: begin
         n_state = !(c_in_y == c_lcu_size + 1) ? S_PO : S_INIT;
         n_wo_h_state = c_wo_h_state;
-        n_busy = (c_in_y == c_lcu_size + 1) ||
-                ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size)); // TODO: Check correctness
+        n_busy = ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 1)) ||
+                ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 2));
         n_out_en = !(c_in_y == (c_lcu_size + 1));
         n_in_x = (c_in_x == c_lcu_size) ? 7'd0 : (c_in_x + 7'd1);
         n_in_y = (c_in_y == c_lcu_size + 1) ? 7'd0
@@ -188,6 +196,11 @@ always@(*) begin
         n_buffer[2] = c_buffer[2];
         n_buffer[1] = c_buffer[1];
         n_buffer[0] = c_buffer[0];
+        for (idx=0; idx<64; idx=idx+1) begin
+            n_buffer_xl_0[idx] = 0;
+            n_buffer_xl_1[idx] = 0;
+            n_buffer_xl_2[idx] = 0;
+        end
     end
     S_WO_HORI: begin
         n_state = (c_wo_h_state == S_WO_H_ENDU2) ? S_INIT : S_WO_HORI;
@@ -204,6 +217,11 @@ always@(*) begin
             n_buffer[2] = 0;
             n_buffer[1] = 0;
             n_buffer[0] = c_din;
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = 0;
+                n_buffer_xl_1[idx] = 0;
+                n_buffer_xl_2[idx] = 0;
+            end
         end
         S_WO_H_IN1: begin
             n_wo_h_state = S_WO_H_IN2;
@@ -293,9 +311,9 @@ always@(*) begin
             n_wo_h_state = S_WO_H_ENDR2;
             n_busy = 1'b0;
             n_out_en = 1'b1;
-            n_in_x = 0; // TODO: Check correctness
+            n_in_x = 0;
             n_in_y = c_in_y;
-            n_out_x = c_out_x + 1; // TODO: Check correctness
+            n_out_x = c_out_x + 1;
             n_out_y = c_out_y;
             if (c_buffer[1]<c_buffer[2] && c_buffer[1]<c_buffer[0]) begin
                 n_dout = (c_buffer[1] + offset0 > 8'd255) ? 8'd255 : c_buffer[1] + offset0;
@@ -320,9 +338,9 @@ always@(*) begin
             n_wo_h_state = S_WO_H_INIT;
             n_busy = 1'b0;
             n_out_en = 1'b1;
-            n_in_x = 0; // TODO: Check correctness
+            n_in_x = 0;
             n_in_y = c_in_y + 1;
-            n_out_x = 0; // TODO: Check correctness
+            n_out_x = 0;
             n_out_y = c_out_y + 1;
             n_dout = c_buffer[1];
             n_buffer[2] = 0;
@@ -333,9 +351,9 @@ always@(*) begin
             n_wo_h_state = S_WO_H_ENDU2;
             n_busy = 1'b1;
             n_out_en = 1'b1;
-            n_in_x = 0; // TODO: Check correctness
+            n_in_x = 0;
             n_in_y = c_in_y;
-            n_out_x = c_out_x + 1; // TODO: Check correctness
+            n_out_x = c_out_x + 1;
             n_out_y = c_out_y;
             if (c_buffer[1]<c_buffer[2] && c_buffer[1]<c_buffer[0]) begin
                 n_dout = (c_buffer[1] + offset0 > 8'd255) ? 8'd255 : c_buffer[1] + offset0;
@@ -383,17 +401,274 @@ always@(*) begin
             n_buffer[0] = 0;
         end
         endcase
+        for (idx=0; idx<64; idx=idx+1) begin
+            n_buffer_xl_0[idx] = 0;
+            n_buffer_xl_1[idx] = 0;
+            n_buffer_xl_2[idx] = 0;
+        end
     end
     S_WO_VERT0: begin
-        n_state = S_INIT;
         n_wo_h_state = c_wo_h_state;
-        n_busy = 1'b1;
-        n_out_en = 1'b0;
-        n_in_x = 7'd0;
-        n_in_y = 7'd0;
-        n_out_x = 7'd0;
-        n_out_y = 7'd0;
-        n_dout = c_dout;
+        if (c_in_y == 1) begin
+            n_state = S_WO_VERT1; // Prepare to read the next row
+            n_busy = 1'b0;
+            n_out_en = 1'b1;
+            n_in_x = 7'd1;
+            n_in_y = c_in_y;
+            n_out_x = 7'd0;
+            n_out_y = 7'd0;
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            n_buffer_xl_1[c_in_x] = c_din;
+        end
+        else begin
+            if (c_in_x != c_lcu_size) begin
+                n_in_x = c_in_x + 1;
+                n_in_y = c_in_y;
+            end
+            else begin
+                n_in_x = 7'd0;
+                n_in_y = c_in_y + 1;
+            end
+            n_state = c_state;
+            n_busy = 1'b0;
+            n_out_en = 1'b0;
+            n_out_x = 7'd0;
+            n_out_y = 7'd0;
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            n_buffer_xl_0[c_in_x] = c_din;
+        end
+        n_dout = c_buffer_xl_0[0];
+        n_buffer[2] = c_buffer[2];
+        n_buffer[1] = c_buffer[1];
+        n_buffer[0] = c_buffer[0];
+    end
+    S_WO_VERT1: begin
+        n_wo_h_state = c_wo_h_state;
+        if (c_in_y == 2) begin
+            n_state = S_WO_VERT2; // Prepare to read the next row
+            n_busy = 1'b0;
+            n_out_en = 1'b1;
+            n_in_x = 7'd1;
+            n_in_y = c_in_y;
+            n_out_x = 7'd0;
+            n_out_y = c_out_y + 1;
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            n_buffer_xl_2[c_in_x] = c_din;
+        end
+        else begin
+            if (c_in_x != c_lcu_size) begin
+                n_in_x = c_in_x + 1;
+                n_in_y = c_in_y;
+            end
+            else begin
+                n_in_x = 7'd0;
+                n_in_y = c_in_y + 1;
+            end
+            n_state = c_state;
+            n_busy = 1'b0;
+            n_out_en = 1'b1;
+            n_out_x = c_out_x + 1;
+            n_out_y = 7'd0;
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            n_buffer_xl_1[c_in_x] = c_din;
+        end
+        n_dout = c_buffer_xl_0[c_out_x];
+        n_buffer[2] = c_buffer[2];
+        n_buffer[1] = c_buffer[1];
+        n_buffer[0] = c_buffer[0];
+    end
+    S_WO_VERT2: begin
+        n_wo_h_state = c_wo_h_state;
+        if (c_in_y == 3) begin
+            n_state = S_WO_VERT3; // Prepare to read the next row
+            n_busy = 1'b0;
+            n_out_en = 1'b1;
+            n_in_x = 7'd1;
+            n_in_y = c_in_y;
+            n_out_x = 7'd0;
+            n_out_y = c_out_y + 1;
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            n_buffer_xl_0[c_in_x] = c_buffer_xl_1[c_in_x];
+            n_buffer_xl_1[c_in_x] = c_buffer_xl_2[c_in_x];
+            n_buffer_xl_2[c_in_x] = c_din;
+        end
+        else begin
+            if (c_in_x != c_lcu_size) begin
+                n_in_x = c_in_x + 1;
+                n_in_y = c_in_y;
+            end
+            else begin
+                n_in_x = 7'd0;
+                n_in_y = c_in_y + 1;
+            end
+            n_state = c_state;
+            n_busy = 1'b0;
+            n_out_en = 1'b1;
+            n_out_x = c_out_x + 1;
+            n_out_y = c_out_y;
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            n_buffer_xl_2[c_in_x] = c_din;
+        end
+        if (c_buffer_xl_1[c_out_x]<c_buffer_xl_2[c_out_x] && c_buffer_xl_1[c_out_x]<c_buffer_xl_0[c_out_x]) begin
+            n_dout = (c_buffer_xl_1[c_out_x] + offset0 > 8'd255) ? 8'd255 : c_buffer_xl_1[c_out_x] + offset0;
+        end
+        else if (c_buffer_xl_1[c_out_x]>c_buffer_xl_2[c_out_x] && c_buffer_xl_1[c_out_x]>c_buffer_xl_0[c_out_x]) begin
+            n_dout = ($signed({1'b0,c_buffer_xl_1[c_out_x]}) +  $signed(offset3) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer_xl_1[c_out_x]}) + $signed(offset3);
+        end
+        else if(2 * c_buffer_xl_1[c_out_x] < (c_buffer_xl_2[c_out_x]+c_buffer_xl_0[c_out_x])) begin
+            n_dout = (c_buffer_xl_1[c_out_x] + offset1 > 8'd255) ? 8'd255 : c_buffer_xl_1[c_out_x] + offset1;
+        end
+        else if(2 * c_buffer_xl_1[c_out_x] > (c_buffer_xl_2[c_out_x]+c_buffer_xl_0[c_out_x])) begin
+            n_dout = ($signed({1'b0,c_buffer_xl_1[c_out_x]}) +  $signed(offset2) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer_xl_1[c_out_x]}) + $signed(offset2);
+        end
+        else begin 
+            n_dout = c_buffer_xl_1[c_out_x];
+        end
+        n_buffer[2] = c_buffer[2];
+        n_buffer[1] = c_buffer[1];
+        n_buffer[0] = c_buffer[0];
+    end
+    S_WO_VERT3: begin
+        n_wo_h_state = c_wo_h_state;
+        if (c_out_y == c_lcu_size + 1) begin
+            n_state = S_INIT; // Prepare to read the next row
+            n_busy = 1'b0;
+            n_out_en = 1'b0;
+            n_in_x = 7'd0;
+            n_in_y = 7'd0;
+            n_out_x = 7'd0;
+            n_out_y = c_out_y + 1;
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = 0;
+                n_buffer_xl_1[idx] = 0;
+                n_buffer_xl_2[idx] = 0;
+            end
+            n_dout = c_dout;
+        end
+        else if (c_out_y == c_lcu_size) begin
+            n_state = c_state;
+            n_busy = ((c_out_y == c_lcu_size) && (c_out_x == c_lcu_size)) ? 1'b0 : 1'b1;
+            n_out_en = 1'b1;
+            n_in_x = 7'd0;
+            n_in_y = 7'd0;
+            if (c_out_x != c_lcu_size) begin
+                n_out_x = c_out_x + 1;
+                n_out_y = c_out_y;
+            end
+            else begin
+                n_out_x = 7'd0;
+                n_out_y = c_out_y + 1;
+            end
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            n_dout = c_buffer_xl_2[c_out_x];
+        end
+        else if ((c_out_y == c_lcu_size-1) && (c_out_x == c_lcu_size)) begin
+            n_state = c_state;
+            n_busy = ((c_out_y == c_lcu_size) && (c_out_x == c_lcu_size)) ? 1'b0 : 1'b1;
+            n_out_en = 1'b1;
+            n_in_x = 7'd0;
+            n_in_y = 7'd0;
+            if (c_out_x != c_lcu_size) begin
+                n_out_x = c_out_x + 1;
+                n_out_y = c_out_y;
+            end
+            else begin
+                n_out_x = 7'd0;
+                n_out_y = c_out_y + 1;
+            end
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            if (c_buffer_xl_1[c_out_x]<c_buffer_xl_2[c_out_x] && c_buffer_xl_1[c_out_x]<c_buffer_xl_0[c_out_x]) begin
+                n_dout = (c_buffer_xl_1[c_out_x] + offset0 > 8'd255) ? 8'd255 : c_buffer_xl_1[c_out_x] + offset0;
+            end
+            else if (c_buffer_xl_1[c_out_x]>c_buffer_xl_2[c_out_x] && c_buffer_xl_1[c_out_x]>c_buffer_xl_0[c_out_x]) begin
+                n_dout = ($signed({1'b0,c_buffer_xl_1[c_out_x]}) +  $signed(offset3) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer_xl_1[c_out_x]}) + $signed(offset3);
+            end
+            else if(2 * c_buffer_xl_1[c_out_x] < (c_buffer_xl_2[c_out_x]+c_buffer_xl_0[c_out_x])) begin
+                n_dout = (c_buffer_xl_1[c_out_x] + offset1 > 8'd255) ? 8'd255 : c_buffer_xl_1[c_out_x] + offset1;
+            end
+            else if(2 * c_buffer_xl_1[c_out_x] > (c_buffer_xl_2[c_out_x]+c_buffer_xl_0[c_out_x])) begin
+                n_dout = ($signed({1'b0,c_buffer_xl_1[c_out_x]}) +  $signed(offset2) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer_xl_1[c_out_x]}) + $signed(offset2);
+            end
+            else begin 
+                n_dout = c_buffer_xl_1[c_out_x];
+            end
+        end
+        else begin
+            if (c_in_x != c_lcu_size) begin
+                n_in_x = c_in_x + 1;
+                n_in_y = c_in_y;
+            end
+            else begin
+                n_in_x = 7'd0;
+                n_in_y = c_in_y + 1;
+            end
+            n_state = c_state;
+            n_busy = ((c_out_y == c_lcu_size - 1) && (c_out_x >= c_lcu_size - 3)) ? 1'b1 : 1'b0;
+            n_out_en = 1'b1;
+            if (c_out_x != c_lcu_size) begin
+                n_out_x = c_out_x + 1;
+                n_out_y = c_out_y;
+            end
+            else begin
+                n_out_x = 7'd0;
+                n_out_y = c_out_y + 1;
+            end
+            for (idx=0; idx<64; idx=idx+1) begin
+                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+            end
+            n_buffer_xl_0[c_in_x] = c_buffer_xl_1[c_in_x];
+            n_buffer_xl_1[c_in_x] = c_buffer_xl_2[c_in_x];
+            n_buffer_xl_2[c_in_x] = c_din;
+            if (c_buffer_xl_1[c_out_x]<c_buffer_xl_2[c_out_x] && c_buffer_xl_1[c_out_x]<c_buffer_xl_0[c_out_x]) begin
+                n_dout = (c_buffer_xl_1[c_out_x] + offset0 > 8'd255) ? 8'd255 : c_buffer_xl_1[c_out_x] + offset0;
+            end
+            else if (c_buffer_xl_1[c_out_x]>c_buffer_xl_2[c_out_x] && c_buffer_xl_1[c_out_x]>c_buffer_xl_0[c_out_x]) begin
+                n_dout = ($signed({1'b0,c_buffer_xl_1[c_out_x]}) +  $signed(offset3) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer_xl_1[c_out_x]}) + $signed(offset3);
+            end
+            else if(2 * c_buffer_xl_1[c_out_x] < (c_buffer_xl_2[c_out_x]+c_buffer_xl_0[c_out_x])) begin
+                n_dout = (c_buffer_xl_1[c_out_x] + offset1 > 8'd255) ? 8'd255 : c_buffer_xl_1[c_out_x] + offset1;
+            end
+            else if(2 * c_buffer_xl_1[c_out_x] > (c_buffer_xl_2[c_out_x]+c_buffer_xl_0[c_out_x])) begin
+                n_dout = ($signed({1'b0,c_buffer_xl_1[c_out_x]}) +  $signed(offset2) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer_xl_1[c_out_x]}) + $signed(offset2);
+            end
+            else begin 
+                n_dout = c_buffer_xl_1[c_out_x];
+            end
+        end
         n_buffer[2] = c_buffer[2];
         n_buffer[1] = c_buffer[1];
         n_buffer[0] = c_buffer[0];
@@ -411,13 +686,17 @@ always@(*) begin
         n_buffer[2] = c_buffer[2];
         n_buffer[1] = c_buffer[1];
         n_buffer[0] = c_buffer[0];
+        for (idx=0; idx<64; idx=idx+1) begin
+            n_buffer_xl_0[idx] = 0;
+            n_buffer_xl_1[idx] = 0;
+            n_buffer_xl_2[idx] = 0;
+        end
     end
     endcase
 end
 
 always@(*)begin //this is to check the finish condition, every cycle the system will check through this and determine when to let finish be HIGH
     n_finish = (c_out_en && (dout_addr == 14'd16383)) ? 1'b1 : 1'b0;
-    //n_finish = (((((c_lcu_size+1)*c_lcu_y)+c_in_y)*8'd128) + (((c_lcu_size+1)*c_lcu_x)+c_in_x) == 14'd16383) ? 1'b1 : 1'b0;
 end
 
 always@(*)begin //Here are all of the Register which value will only follow the input (it is to save the input value)
@@ -456,6 +735,11 @@ begin
         c_buffer[2] <= 0;
         c_buffer[1] <= 0;
         c_buffer[0] <= 0;
+        for (idx=0; idx<64; idx=idx+1) begin
+            c_buffer_xl_0[idx] <= 0;
+            c_buffer_xl_1[idx] <= 0;
+            c_buffer_xl_2[idx] <= 0;
+        end
         c_in_x <= 7'd0;
         c_in_y <= 7'd0;
         c_out_x <= 7'd0;
@@ -475,6 +759,11 @@ begin
         c_buffer[2] <= n_buffer[2];
         c_buffer[1] <= n_buffer[1];
         c_buffer[0] <= n_buffer[0];
+        for (idx=0; idx<64; idx=idx+1) begin
+            c_buffer_xl_0[idx] <= n_buffer_xl_0[idx];
+            c_buffer_xl_1[idx] <= n_buffer_xl_1[idx];
+            c_buffer_xl_2[idx] <= n_buffer_xl_2[idx];
+        end
         c_in_x <= n_in_x;
         c_in_y <= n_in_y;
         c_out_x <= n_out_x;
