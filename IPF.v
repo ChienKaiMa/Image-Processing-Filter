@@ -117,15 +117,14 @@ always@(*) begin
                 n_state = S_PO;
             end
             else begin
-                n_state = S_OFF;
-                /*
+                //n_state = S_OFF;
                 if (ipf_wo_class == 0) begin
                     n_state = S_WO_HORI;
                 end
                 else begin
-                    n_state = S_WO_VERT;
+                    //n_state = S_WO_VERT;
+                    n_state = S_PO;
                 end
-                */
             end
         end
         else begin
@@ -171,7 +170,7 @@ always@(*) begin
         n_in_x = (c_in_x == c_lcu_size) ? 7'd0 : (c_in_x + 7'd1);
         n_in_y = (c_in_y == c_lcu_size + 1) ? 7'd0
                                         : (c_in_x == c_lcu_size) ? (c_in_y + 7'd1)
-                                        : c_in_y;
+                                        : c_in_y;   
         n_out_x = n_in_x;
         n_out_y = n_in_y;
         if ((c_band_idx == c_ipf_band_pos) ||
@@ -239,28 +238,77 @@ always@(*) begin
         end
         S_WO_H_CAL: begin
             // TODO: finish this state
-            if (c_in_x != c_lcu_size) begin
-                n_wo_h_state = S_WO_H_CAL;
-            end
-            else if (c_in_y != c_lcu_size) begin
-                n_wo_h_state = S_WO_H_ENDR1;
+            //if (c_in_x != c_lcu_size) begin
+            //    n_wo_h_state = S_WO_H_CAL;
+            //    if (c_in_x == c_lcu_size - 1) begin
+            //        n_busy = 1'b1;
+            //    end
+            //    else begin
+            //        n_busy = 1'b0;                
+            //    end
+            //end
+            //else if (c_in_y != c_lcu_size) begin
+            //    n_wo_h_state = S_WO_H_ENDR1;
+            //    n_busy = 1'b1;
+            //end
+            //else begin
+            //    n_wo_h_state = S_WO_H_ENDU1;
+            //    n_busy = 1'b1;
+            //end
+
+            if (c_in_y == c_lcu_size) begin
+                if (c_in_x == c_lcu_size) begin
+                    n_wo_h_state = S_WO_H_ENDU1;
+                end
+                else begin
+                    n_wo_h_state = S_WO_H_CAL;
+                end
+                if ((c_in_x == c_lcu_size - 2) ||
+                    (c_in_x == c_lcu_size - 1))
+                begin
+                    n_busy = 1'b1;
+                end
+                else begin
+                    n_busy = 1'b0;
+                end
             end
             else begin
-                n_wo_h_state = S_WO_H_ENDU1;
+                if (c_in_x != c_lcu_size) begin
+                    n_wo_h_state = S_WO_H_CAL;
+                    if (c_in_x == c_lcu_size - 1) begin
+                        n_busy = 1'b1;
+                    end
+                    else begin
+                        n_busy = 1'b0;                
+                    end
+                end
+                else begin
+                    n_wo_h_state = S_WO_H_ENDR1;
+                    n_busy = 1'b1;
+                end
             end
-            if ((c_in_x == c_lcu_size - 1) ||
-                (c_in_x == c_lcu_size)) begin
-                n_busy = 1'b1;                
-            end
-            else begin
-                n_busy = 1'b0;
-            end
+            
             n_out_en = 1'b1;
             n_in_x = c_in_x + 1;
             n_in_y = c_in_y;
             n_out_x = c_out_x + 1;
             n_out_y = c_out_y;
-            n_dout = c_buffer[1] + offset0; // TODO: choose offset
+
+            if (c_buffer[1]<c_buffer[2] && c_buffer[1]<c_buffer[0]) begin
+                n_dout = (c_buffer[1] + offset0 > 8'd255) ? 8'd255 : c_buffer[1] + offset0;
+            end
+            else if (c_buffer[1]>c_buffer[2] && c_buffer[1]>c_buffer[0]) begin
+                n_dout = ($signed({1'b0,c_buffer[1]}) +  $signed(offset3) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer[1]}) + $signed(offset3);
+            end
+            else if(2 * c_buffer[1] < (c_buffer[2]+c_buffer[0])) begin
+                n_dout = (c_buffer[1] + offset1 > 8'd255) ? 8'd255 : c_buffer[1] + offset1;
+            end
+            else if(2 * c_buffer[1] > (c_buffer[2]+c_buffer[0])) begin
+                n_dout = ($signed({1'b0,c_buffer[1]}) +  $signed(offset2) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer[1]}) + $signed(offset2);
+            end
+            else begin 
+                n_dout = c_buffer[1];
+            end
             n_buffer[2] = c_buffer[1];
             n_buffer[1] = c_buffer[0];
             n_buffer[0] = c_din;
@@ -273,7 +321,21 @@ always@(*) begin
             n_in_y = c_in_y;
             n_out_x = c_out_x + 1; // TODO: Check correctness
             n_out_y = c_out_y;
-            n_dout = c_buffer[1];
+            if (c_buffer[1]<c_buffer[2] && c_buffer[1]<c_buffer[0]) begin
+                n_dout = (c_buffer[1] + offset0 > 8'd255) ? 8'd255 : c_buffer[1] + offset0;
+            end
+            else if (c_buffer[1]>c_buffer[2] && c_buffer[1]>c_buffer[0]) begin
+                n_dout = ($signed({1'b0,c_buffer[1]}) +  $signed(offset3) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer[1]}) + $signed(offset3);
+            end
+            else if(2 * c_buffer[1] < (c_buffer[2]+c_buffer[0])) begin
+                n_dout = (c_buffer[1] + offset1 > 8'd255) ? 8'd255 : c_buffer[1] + offset1;
+            end
+            else if(2 * c_buffer[1] > (c_buffer[2]+c_buffer[0])) begin
+                n_dout = ($signed({1'b0,c_buffer[1]}) +  $signed(offset2) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer[1]}) + $signed(offset2);
+            end
+            else begin 
+                n_dout = c_buffer[1];
+            end
             n_buffer[2] = c_buffer[1];
             n_buffer[1] = c_buffer[0];
             n_buffer[0] = 0;
@@ -293,13 +355,27 @@ always@(*) begin
         end
         S_WO_H_ENDU1: begin
             n_wo_h_state = S_WO_H_ENDU2;
-            n_busy = 1'b0;
+            n_busy = 1'b1;
             n_out_en = 1'b1;
             n_in_x = 0; // TODO: Check correctness
             n_in_y = c_in_y;
             n_out_x = c_out_x + 1; // TODO: Check correctness
             n_out_y = c_out_y;
-            n_dout = c_buffer[1];
+            if (c_buffer[1]<c_buffer[2] && c_buffer[1]<c_buffer[0]) begin
+                n_dout = (c_buffer[1] + offset0 > 8'd255) ? 8'd255 : c_buffer[1] + offset0;
+            end
+            else if (c_buffer[1]>c_buffer[2] && c_buffer[1]>c_buffer[0]) begin
+                n_dout = ($signed({1'b0,c_buffer[1]}) +  $signed(offset3) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer[1]}) + $signed(offset3);
+            end
+            else if(2 * c_buffer[1] < (c_buffer[2]+c_buffer[0])) begin
+                n_dout = (c_buffer[1] + offset1 > 8'd255) ? 8'd255 : c_buffer[1] + offset1;
+            end
+            else if(2 * c_buffer[1] > (c_buffer[2]+c_buffer[0])) begin
+                n_dout = ($signed({1'b0,c_buffer[1]}) +  $signed(offset2) < 8'd0) ? $signed(8'd0) : $signed({1'b0,c_buffer[1]}) + $signed(offset2);
+            end
+            else begin 
+                n_dout = c_buffer[1];
+            end
             n_buffer[2] = c_buffer[1];
             n_buffer[1] = c_buffer[0];
             n_buffer[0] = 0;
