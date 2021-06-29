@@ -18,11 +18,14 @@ output  [13:0] dout_addr;
 
 
 // FSM for top module
-parameter S_INIT = 4'd0;
-parameter S_OFF = 4'd1;
-parameter S_PO = 4'd2;
-parameter S_WO_HORI = 4'd3;
-parameter S_WO_VERT = 4'd4;
+parameter S_INIT     = 4'd0;
+parameter S_OFF      = 4'd1;
+parameter S_PO       = 4'd2;
+parameter S_WO_HORI  = 4'd3;
+parameter S_WO_VERT0 = 4'd4;
+parameter S_WO_VERT1 = 4'd5;
+parameter S_WO_VERT2 = 4'd6;
+parameter S_WO_VERT3 = 4'd7;
 reg [3:0] c_state, n_state;
 
 // FSM for WO horizontal
@@ -41,9 +44,12 @@ reg [7:0] c_buffer [2:0];
 reg [7:0] n_buffer [2:0];
 
 // buffer for WO vertical
-// TODO: reg [7:0] c_buffer_xl [];
-// TODO: reg [7:0] c_buffer_xl [];
-
+reg [7:0] c_buffer_xl_0 [63:0];
+reg [7:0] c_buffer_xl_1 [63:0];
+reg [7:0] c_buffer_xl_2 [63:0];
+reg [7:0] n_buffer_xl_0 [63:0];
+reg [7:0] n_buffer_xl_1 [63:0];
+reg [7:0] n_buffer_xl_2 [63:0];
 
 //wire/reg declaration
 
@@ -54,8 +60,6 @@ reg [1:0] c_ipf_type, n_ipf_type;
 reg [4:0] c_ipf_band_pos, n_ipf_band_pos;
 reg c_ipf_wo_class, n_ipf_wo_class;
 reg [15:0] c_offset, n_offset;
-//wire [3:0] offset [0:3] = c_offset[15:0];
-
 wire [3:0] offset0 = c_offset[15:12];
 wire [3:0] offset1 = c_offset[11:8];
 wire [3:0] offset2 = c_offset[7:4];
@@ -66,6 +70,12 @@ reg [2:0] c_lcu_x, n_lcu_x;
 reg [2:0] c_lcu_y, n_lcu_y;
 reg [6:0] c_lcu_size, n_lcu_size; //the size of 1 lcu (16x16, 32x32, 64x64) but here it is 15, 31, 63 since we start from 0
 
+//act as counter for row and column pixel. This will be use full to access index and to check whether the system have finished or not
+reg [6:0] c_in_x, n_in_x, c_in_y, n_in_y; 
+reg [6:0] c_out_x, n_out_x, c_out_y, n_out_y;
+reg [2:0] c_max_lcu, n_max_lcu; //the maximum coordinate of lcu_x and lcu_y
+//------- Some new variable that will needed
+
 // Output
 reg c_busy, n_busy;
 reg c_finish, n_finish;
@@ -73,20 +83,10 @@ reg c_out_en, n_out_en;
 reg [7:0] c_dout, n_dout;
 //------Input and Output register
 
-
-//act as counter for row and column pixel. This will be use full to access index and to check whether the system have finished or not
-reg [6:0] c_in_x, n_in_x, c_in_y, n_in_y; 
-reg [6:0] c_out_x, n_out_x, c_out_y, n_out_y;
-reg [2:0] c_max_lcu, n_max_lcu; //the maximum coordinate of lcu_x and lcu_y
-//------- Some new variable that will needed
-
-reg c_lcu_finish, n_lcu_finish;
-
 assign busy = c_busy;
 assign finish = c_finish;
 assign out_en = c_out_en;
 assign dout = c_dout;
-wire [4:0] band_index = c_din / 4'd8;
 
 DoutAddrCtrl doutAddrCtrl (
     .clk(clk),
@@ -97,11 +97,7 @@ DoutAddrCtrl doutAddrCtrl (
     .pixel_x(c_out_x),
     .pixel_y(c_out_y),
     .dout_addr(dout_addr)
-    // TODO: Check if the wiring makes sense
 );
-
-
-//WOVertCalc woVertCalc (.*);
 
 reg [7:0] c_band_idx, n_band_idx;
 
@@ -122,8 +118,8 @@ always@(*) begin
                     n_state = S_WO_HORI;
                 end
                 else begin
-                    //n_state = S_WO_VERT;
                     n_state = S_PO;
+                    //n_state = S_WO_VERT0;
                 end
             end
         end
@@ -138,7 +134,6 @@ always@(*) begin
         n_in_y = 7'd0;
         n_out_x = 7'd0;
         n_out_y = 7'd0;
-        n_lcu_finish = 1'b0;
         n_dout = c_dout;
         n_buffer[2] = c_buffer[2];
         n_buffer[1] = c_buffer[1];
@@ -237,25 +232,6 @@ always@(*) begin
             n_buffer[0] = c_din;
         end
         S_WO_H_CAL: begin
-            // TODO: finish this state
-            //if (c_in_x != c_lcu_size) begin
-            //    n_wo_h_state = S_WO_H_CAL;
-            //    if (c_in_x == c_lcu_size - 1) begin
-            //        n_busy = 1'b1;
-            //    end
-            //    else begin
-            //        n_busy = 1'b0;                
-            //    end
-            //end
-            //else if (c_in_y != c_lcu_size) begin
-            //    n_wo_h_state = S_WO_H_ENDR1;
-            //    n_busy = 1'b1;
-            //end
-            //else begin
-            //    n_wo_h_state = S_WO_H_ENDU1;
-            //    n_busy = 1'b1;
-            //end
-
             if (c_in_y == c_lcu_size) begin
                 if (c_in_x == c_lcu_size) begin
                     n_wo_h_state = S_WO_H_ENDU1;
@@ -408,7 +384,7 @@ always@(*) begin
         end
         endcase
     end
-    S_WO_VERT: begin
+    S_WO_VERT0: begin
         n_state = S_INIT;
         n_wo_h_state = c_wo_h_state;
         n_busy = 1'b1;
@@ -540,39 +516,6 @@ begin
     end
 end
 endmodule
-
-module WOVertCalc (
-    clk,
-    reset,
-    offset0,
-    offset1,
-    offset2,
-    offset3,
-    dout,
-    finish
-);
-    input   clk;
-    input   reset;
-    input   [3:0]   offset0;
-    input   [3:0]   offset1;
-    input   [3:0]   offset2;
-    input   [3:0]   offset3;
-    output  [7:0]   dout;
-    output  finish;
-
-    //StoreData storeData (.*);
-endmodule
-
-/*
-
-module StoreData (
-    data,
-    data_addr
-);
-    
-endmodule
-*/
-
 
 module DoutAddrCtrl (
     clk,
