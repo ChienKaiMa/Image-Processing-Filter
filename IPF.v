@@ -107,19 +107,19 @@ always@(*) begin
     case(c_state)
     S_INIT: begin
         if (in_en) begin
-            if(ipf_type == 0) begin
-                n_state = S_OFF;
-            end
-            else if(ipf_type == 1) begin
-                n_state = S_PO;
-            end
-            else begin
+            if (ipf_type == 2) begin
                 if (ipf_wo_class == 0) begin
                     n_state = S_WO_HORI;
                 end
                 else begin
                     n_state = S_WO_VERT0;
                 end
+            end
+            else if(ipf_type == 0) begin
+                n_state = S_OFF;
+            end
+            else begin
+                n_state = S_PO;
             end
         end
         else begin
@@ -146,12 +146,12 @@ always@(*) begin
         n_state = !(c_in_y == c_lcu_size + 1) ? S_OFF : S_INIT;
         n_wo_h_state = c_wo_h_state;
         n_busy = ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 1)) ||
-                ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 2));
+                ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 2)); // TODO: Optimize
         n_out_en = !(c_in_y == (c_lcu_size + 1));
         n_in_x = (c_in_x == c_lcu_size) ? 7'd0 : (c_in_x + 7'd1);
         n_in_y = (c_in_y == c_lcu_size + 1) ? 7'd0
                         : (c_in_x == c_lcu_size) ? (c_in_y + 7'd1)
-                        : c_in_y;
+                        : c_in_y; // TODO: Optimize
         n_out_x = n_in_x;
         n_out_y = n_in_y;
         n_dout = c_din;
@@ -168,14 +168,15 @@ always@(*) begin
         n_state = !(c_in_y == c_lcu_size + 1) ? S_PO : S_INIT;
         n_wo_h_state = c_wo_h_state;
         n_busy = ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 1)) ||
-                ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 2));
+                ((c_in_y == c_lcu_size) && (c_in_x == c_lcu_size - 2)); // TODO: Optimize
         n_out_en = !(c_in_y == (c_lcu_size + 1));
         n_in_x = (c_in_x == c_lcu_size) ? 7'd0 : (c_in_x + 7'd1);
         n_in_y = (c_in_y == c_lcu_size + 1) ? 7'd0
                                         : (c_in_x == c_lcu_size) ? (c_in_y + 7'd1)
-                                        : c_in_y;   
+                                        : c_in_y;    // TODO: Optimize
         n_out_x = n_in_x;
         n_out_y = n_in_y;
+        // TODO: Optimize
         if ((c_band_idx == c_ipf_band_pos) ||
             (c_band_idx == c_ipf_band_pos - 1) ||
             (c_band_idx == c_ipf_band_pos + 1)) begin
@@ -250,6 +251,7 @@ always@(*) begin
             n_buffer[0] = c_din;
         end
         S_WO_H_CAL: begin
+            // TODO: Optimize
             if (c_in_y == c_lcu_size) begin
                 if (c_in_x == c_lcu_size) begin
                     n_wo_h_state = S_WO_H_ENDU1;
@@ -287,7 +289,7 @@ always@(*) begin
             n_in_y = c_in_y;
             n_out_x = c_out_x + 1;
             n_out_y = c_out_y;
-
+            // TODO: Optimize
             if (c_buffer[1]<c_buffer[2] && c_buffer[1]<c_buffer[0]) begin
                 n_dout = (c_buffer[1] + offset0 > 8'd255) ? 8'd255 : c_buffer[1] + offset0;
             end
@@ -315,6 +317,7 @@ always@(*) begin
             n_in_y = c_in_y;
             n_out_x = c_out_x + 1;
             n_out_y = c_out_y;
+            // TODO: Optimize
             if (c_buffer[1]<c_buffer[2] && c_buffer[1]<c_buffer[0]) begin
                 n_dout = (c_buffer[1] + offset0 > 8'd255) ? 8'd255 : c_buffer[1] + offset0;
             end
@@ -355,6 +358,7 @@ always@(*) begin
             n_in_y = c_in_y;
             n_out_x = c_out_x + 1;
             n_out_y = c_out_y;
+            // TODO: Optimize
             if (c_buffer[1]<c_buffer[2] && c_buffer[1]<c_buffer[0]) begin
                 n_dout = (c_buffer[1] + offset0 > 8'd255) ? 8'd255 : c_buffer[1] + offset0;
             end
@@ -409,42 +413,32 @@ always@(*) begin
     end
     S_WO_VERT0: begin
         n_wo_h_state = c_wo_h_state;
-        if (c_in_y == 1) begin
-            n_state = S_WO_VERT1; // Prepare to read the next row
-            n_busy = 1'b0;
-            n_out_en = 1'b1;
-            n_in_x = 7'd1;
+        for (idx=0; idx<64; idx=idx+1) begin
+            n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+            n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+            n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+        end // Execution order is crucial!
+        if (c_in_x != c_lcu_size) begin
+            n_in_x = c_in_x + 1;
             n_in_y = c_in_y;
-            n_out_x = 7'd0;
-            n_out_y = 7'd0;
-            for (idx=0; idx<64; idx=idx+1) begin
-                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
-                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
-                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
-            end
-            n_buffer_xl_1[c_in_x] = c_din;
         end
         else begin
-            if (c_in_x != c_lcu_size) begin
-                n_in_x = c_in_x + 1;
-                n_in_y = c_in_y;
-            end
-            else begin
-                n_in_x = 7'd0;
-                n_in_y = c_in_y + 1;
-            end
-            n_state = c_state;
-            n_busy = 1'b0;
-            n_out_en = 1'b0;
-            n_out_x = 7'd0;
-            n_out_y = 7'd0;
-            for (idx=0; idx<64; idx=idx+1) begin
-                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
-                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
-                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
-            end
-            n_buffer_xl_0[c_in_x] = c_din;
+            n_in_x = 7'd0;
+            n_in_y = c_in_y + 1;
         end
+        n_busy = 1'b0;
+        if (c_in_y == 1) begin
+            n_state = S_WO_VERT1; // Prepare to read the next row
+            n_out_en = 1'b1;
+            n_buffer_xl_1[c_in_x] = c_din; // Execution order is crucial!
+        end
+        else begin
+            n_state = c_state;
+            n_out_en = 1'b0;
+            n_buffer_xl_0[c_in_x] = c_din; // Execution order is crucial!
+        end
+        n_out_x = 7'd0;
+        n_out_y = 7'd0;
         n_dout = c_buffer_xl_0[0];
         n_buffer[2] = c_buffer[2];
         n_buffer[1] = c_buffer[1];
@@ -452,42 +446,34 @@ always@(*) begin
     end
     S_WO_VERT1: begin
         n_wo_h_state = c_wo_h_state;
+        for (idx=0; idx<64; idx=idx+1) begin
+            n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
+            n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
+            n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
+        end
+        if (c_in_x != c_lcu_size) begin
+            n_in_x = c_in_x + 1;
+            n_in_y = c_in_y;
+        end
+        else begin
+            n_in_x = 7'd0;
+            n_in_y = c_in_y + 1;
+        end
         if (c_in_y == 2) begin
             n_state = S_WO_VERT2; // Prepare to read the next row
             n_busy = 1'b0;
-            n_out_en = 1'b1;
-            n_in_x = 7'd1;
-            n_in_y = c_in_y;
             n_out_x = 7'd0;
             n_out_y = c_out_y + 1;
-            for (idx=0; idx<64; idx=idx+1) begin
-                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
-                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
-                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
-            end
             n_buffer_xl_2[c_in_x] = c_din;
         end
         else begin
-            if (c_in_x != c_lcu_size) begin
-                n_in_x = c_in_x + 1;
-                n_in_y = c_in_y;
-            end
-            else begin
-                n_in_x = 7'd0;
-                n_in_y = c_in_y + 1;
-            end
             n_state = c_state;
             n_busy = 1'b0;
-            n_out_en = 1'b1;
             n_out_x = c_out_x + 1;
             n_out_y = 7'd0;
-            for (idx=0; idx<64; idx=idx+1) begin
-                n_buffer_xl_0[idx] = c_buffer_xl_0[idx];
-                n_buffer_xl_1[idx] = c_buffer_xl_1[idx];
-                n_buffer_xl_2[idx] = c_buffer_xl_2[idx];
-            end
             n_buffer_xl_1[c_in_x] = c_din;
         end
+        n_out_en = 1'b1;
         n_dout = c_buffer_xl_0[c_out_x];
         n_buffer[2] = c_buffer[2];
         n_buffer[1] = c_buffer[1];
@@ -495,12 +481,18 @@ always@(*) begin
     end
     S_WO_VERT2: begin
         n_wo_h_state = c_wo_h_state;
+        if (c_in_x != c_lcu_size) begin
+            n_in_x = c_in_x + 1;
+            n_in_y = c_in_y;
+        end
+        else begin
+            n_in_x = 7'd0;
+            n_in_y = c_in_y + 1;
+        end
         if (c_in_y == 3) begin
             n_state = S_WO_VERT3; // Prepare to read the next row
             n_busy = 1'b0;
             n_out_en = 1'b1;
-            n_in_x = 7'd1;
-            n_in_y = c_in_y;
             n_out_x = 7'd0;
             n_out_y = c_out_y + 1;
             for (idx=0; idx<64; idx=idx+1) begin
@@ -513,14 +505,6 @@ always@(*) begin
             n_buffer_xl_2[c_in_x] = c_din;
         end
         else begin
-            if (c_in_x != c_lcu_size) begin
-                n_in_x = c_in_x + 1;
-                n_in_y = c_in_y;
-            end
-            else begin
-                n_in_x = 7'd0;
-                n_in_y = c_in_y + 1;
-            end
             n_state = c_state;
             n_busy = 1'b0;
             n_out_en = 1'b1;
@@ -835,7 +819,7 @@ module DoutAddrCtrl (
         end
         else begin
             addr <= (((block_size+1) * block_y) + pixel_y) * 8'd128 +
-                ((block_size+1) * block_x) + pixel_x;
+                ((block_size+1) * block_x) + pixel_x; // TODO: Optimize
         end
     end
 endmodule
